@@ -11,7 +11,10 @@
     "paths": {
       "@/common/*": ["./src/*"],
       "@/modules/*": ["./src/modules/*"],
-    }
+    },
+    "typeRoots": [
+      "./node_modules/fuzzysort"
+    ]
   },
   "include": [
     "./src",

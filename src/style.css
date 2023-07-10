@@ -1,1 +1,18 @@
 
+.campPage-trap-itemBrowser-itemContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.campPage-trap-itemBrowser-items {
+  position: unset;
+}
+
+.mh-smart-search-filter {
+  display: flex;
+  padding: 5px 0px;
+}
+
+#mh-smart-search-input {
+  flex: 1;
+}

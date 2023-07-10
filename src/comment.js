@@ -10,4 +10,4 @@
 // ==/UserScript==
 // @ts-ignore
 // This line is needed b/c rollup will not import the file if nothing "usefull" is in it.
-((w) =>{ if (w) { w.name = 'my-userscript';}})();
+((w) =>{ if (w) { w.name = 'mh-smart-search';}})();
