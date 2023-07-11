@@ -14,6 +14,7 @@ interface HitGrab {
 interface App {
   pages: {
     CampPage: {
+      toggleItemBrowser: (itemClassification: string, hasPresetFilters: boolean) => Promise<boolean>;
       EventToggleBlueprint: string,
       BluePrintTypeItemBrowser: string,
     }
@@ -34,4 +35,20 @@ interface User {
   trap_luck: number;
   environment_name: string;
   enviroment_atts: EnvironmentAttributes;
+}
+
+interface Component {
+  item_id: number;
+  name: string; // Pascal With Spacing
+  type: string; // snake_case
+  classification: string;
+  description: string;
+  quantity: number;
+  thumbnail: string;
+  is_removable: boolean;
+  thumbnail_transparent: string;
+  large: string;
+  has_parts: boolean
+  thumbnail_large: string;
+  tag_types: string[];
 }
