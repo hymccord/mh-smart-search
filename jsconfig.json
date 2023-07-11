@@ -12,9 +12,7 @@
       "@/common/*": ["./src/*"],
       "@/modules/*": ["./src/modules/*"],
     },
-    "typeRoots": [
-      "./node_modules/fuzzysort"
-    ]
+    "module": "NodeNext"
   },
   "include": [
     "./src",
