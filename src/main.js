@@ -1,18 +1,25 @@
 import { formatItem } from './Pages/CampPage.js';
 import './comment';
+import { fuzzyMatch } from './fts_fuzzy_match.js';
 import style from './style.css';
 import { log } from './util/logging.js';
-import { addStyles, onAjaxRequest } from './util/mouseplace.js';
+import { addStyles, onAjaxRequest, onEvent } from './util/mouseplace.js';
 import fuzzysort from 'fuzzysort';
 
 const fuzzyOptions = {
   limit: 100,
   threshold: -10000,
 };
+
+/** @type {Object} */
+let _originalTemplateData;
+/** @type {string} */
 let _currentClassification;
+let _latestResults;
 log('loaded!');
 
 addStyle();
+onEvent('camp_page_toggle_blueprint', focusSearchBar);
 addInterceptors();
 onAjaxRequest(monitorGetTrapComponents, 'managers/ajax/users/gettrapcomponents.php');
 
@@ -40,43 +47,106 @@ function addStyle() {
 
 function addInterceptors() {
   /** @type {ProxyHandler<(arg0: string, arg1: boolean) => Promise<boolean>>} */
-  const logFunction = {
+  const interceptToggleItemBrowser = {
     apply: async function(target, thisArg, argArray) {
+      _originalTemplateData = null;
       addSmartSearchBar(argArray[0]);
       // log(target, thisArg, argArray);
       return Reflect.apply(target, thisArg, argArray);
     }
   };
 
-  app.pages.CampPage.toggleItemBrowser = new Proxy(app.pages.CampPage.toggleItemBrowser, logFunction);
+  /** @type {ProxyHandler<() => void>} */
+  const interceptHideItemBrowser = {
+    apply: function(target, thisArg) {
+      _originalTemplateData = null;
+      return Reflect.apply(target, thisArg, []);
+    }
+  };
+
+  /** @type {ProxyHandler<(templateGroupSource: string, templateType: string, templateData: Object) => void>} */
+  const interceptRenderFromFile = {
+    apply: function(target, thisArg, [templateGroupSource, templateType, templateData]) {
+      // cache template data on blueprint show
+      if (_originalTemplateData == null && templateGroupSource === 'CampPage' && templateType === 'tag_groups') {
+        _originalTemplateData = templateData;
+      }
+      return Reflect.apply(target, thisArg, [templateGroupSource, templateType, templateData]);
+    }
+  };
+
+  app.pages.CampPage.toggleItemBrowser = new Proxy(app.pages.CampPage.toggleItemBrowser, interceptToggleItemBrowser);
+  app.pages.CampPage.hideItemBrowser = new Proxy(app.pages.CampPage.hideItemBrowser, interceptHideItemBrowser);
+  hg.utils.TemplateUtil.renderFromFile = new Proxy(hg.utils.TemplateUtil.renderFromFile, interceptRenderFromFile);
 
   // app.pages.CampPage.toggleItemBrowser = smartSearchToggleItemBroswer(app.pages.CampPage.toggleItemBrowser);
 }
 
+function focusSearchBar(eventParams) {
+  if (eventParams === 'item_browser') {
+    $('#mh-smart-search-input').trigger('focus');
+  }
+}
+
+/**
+ * @param {string} itemClassification
+ */
 function addSmartSearchBar(itemClassification) {
   const $container = $('.campPage-trap-itemBrowser-itemContainer');
 
   _currentClassification = itemClassification;
-  if ($('#mh-smart-search-input', $container).length > 0) {
+  const $input = $('#mh-smart-search-input', $container);
+  // $input.show();
+  $input.trigger('focus');
+  if ($input.length > 0) {
+    $input.val('');
     return;
   }
 
   $container.prepend(`
-  <div class="mh-smart-search-filter"><input id="mh-smart-search-input" type="text" placeholder="${'Smart Search: '}" >
+  <div class="mh-smart-search-filter"><input id="mh-smart-search-input" type="text" placeholder="${'Smart Search: '}">
   `);
 
   $('#mh-smart-search-input').on('input', function() {
-    let results = fuzzysort.go(this.value, componentsByClassification[_currentClassification], {
-      ...fuzzyOptions,
-      keys: ['name']
-    });
+    const value = this.value;
 
-    renderItemListing(this.value, results);
+    // User erased all input, return to original
+    if (value === '') {
+      doRenderItemBrowserItems(_originalTemplateData);
+      return;
+    }
+
+    let results = Object.values(componentsByClassification[_currentClassification])
+      .reduce((a, item) => {
+        const result = fuzzyMatch(value, item.name);
+        if (result[0]) {
+          a.push([result[1], item]);
+        }
+        return a;
+      }, [])
+      .sort((a, b) => b[0] - a[0])
+      .reduce((a, resultArr) => {
+        a.push({obj: resultArr[1]});
+        return a;
+      }, []);
+
+    // let results = fuzzysort.go(value, componentsByClassification[_currentClassification], {
+    //   ...fuzzyOptions,
+    //   keys: ['name']
+    // });
+    renderItemListing(value, results);
+  }).on('keypress', function(e) {
+    if (e.which == 13) {
+      if ($('.campPage-trap-itemBrowser-item-armButton').length > 0) {
+        app.pages.CampPage.armItem($('.campPage-trap-itemBrowser-item-armButton ')[0]);
+      }
+    }
   });
 }
 
 /**
  * @param {Fuzzysort.KeysResults<any>} results
+ * @param {any} searchValue
  */
 function renderItemListing(searchValue, results) {
 
@@ -98,6 +168,10 @@ function renderItemListing(searchValue, results) {
     'className',
     'campPage-trap-itemBrowser ' + _currentClassification
   );
+  doRenderItemBrowserItems(templateData);
+}
+
+function doRenderItemBrowserItems(templateData) {
   var scrollContainer = $('.campPage-trap-itemBrowser-items');
   scrollContainer.scrollTop(0);
   var tagGroupContainer = $('.campPage-trap-itemBrowser-tagGroupContainer');

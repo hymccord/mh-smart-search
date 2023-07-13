@@ -14,6 +14,7 @@ interface HitGrab {
 interface App {
   pages: {
     CampPage: {
+      hideItemBrowser: () => void;
       toggleItemBrowser: (itemClassification: string, hasPresetFilters: boolean) => Promise<boolean>;
       EventToggleBlueprint: string,
       BluePrintTypeItemBrowser: string,
