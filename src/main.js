@@ -1,17 +1,11 @@
-import { formatItem } from './Pages/CampPage.js';
 import './comment';
-import { fuzzyMatch } from './fts_fuzzy_match.js';
 import style from './style.css';
+import { formatItem } from './Pages/CampPage.js';
+import { fuzzyMatch } from './fts_fuzzy_match.js';
 import { log } from './util/logging.js';
 import { addStyles, onAjaxRequest, onEvent } from './util/mouseplace.js';
-import fuzzysort from 'fuzzysort';
 
-const fuzzyOptions = {
-  limit: 100,
-  threshold: -10000,
-};
-
-/** @type {Object} */
+/** @type {Object | null} */
 let _originalTemplateData;
 /** @type {string} */
 let _currentClassification;
@@ -79,6 +73,24 @@ function addInterceptors() {
   app.pages.CampPage.hideItemBrowser = new Proxy(app.pages.CampPage.hideItemBrowser, interceptHideItemBrowser);
   hg.utils.TemplateUtil.renderFromFile = new Proxy(hg.utils.TemplateUtil.renderFromFile, interceptRenderFromFile);
 
+  $.fn.select2.defaults.matcher = function(term, text) {
+    return fuzzyMatch(term, text)[0];
+  };
+
+  $.fn.select2.defaults.sortResults = function(results, container, query) {
+    const term = query.term;
+
+    if (!Array.isArray(results)) {
+      return results;
+    }
+
+    if (results.length == 0 || !(results[0].text == null)) {
+      return results;
+    }
+
+    return fuzzyMatchOn(term, results, (item) => item.text );
+  };
+
   // app.pages.CampPage.toggleItemBrowser = smartSearchToggleItemBroswer(app.pages.CampPage.toggleItemBrowser);
 }
 
@@ -144,10 +156,7 @@ function addSmartSearchBar(itemClassification) {
   });
 }
 
-/**
- * @param {Fuzzysort.KeysResults<any>} results
- * @param {any} searchValue
- */
+
 function renderItemListing(searchValue, results) {
 
   const tagGroups = [results.reduce(function(agg, result) {
@@ -200,3 +209,23 @@ const componentsByClassification = {
   base: [],
   skin: [],
 };
+
+/**
+ * @param {string} pattern
+ * @param {any[]} items
+ * @param {(arg: any) => string} selector
+ */
+function fuzzyMatchOn(pattern, items, selector) {
+  return items.reduce((a, item) => {
+    const result = fuzzyMatch(pattern, selector(item));
+    if (result[0]) {
+      a.push([result[1], item]);
+    }
+    return a;
+  }, [])
+    .sort((/** @type {[Number, any]} */ a, /** @type {[number, any]} */ b) => b[0] - a[0])
+    .reduce((/** @type {{ obj: any; }[]} */ a, /** @type {any[]} */ resultArr) => {
+      a.push(resultArr[1]);
+      return a;
+    }, []);
+}

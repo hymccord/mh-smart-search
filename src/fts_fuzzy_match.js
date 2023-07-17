@@ -51,7 +51,7 @@ export function fuzzyMatchSimple(pattern, str) {
  * Does a fuzzy search to find pattern inside a string.
  * @param {*} pattern string        pattern to search for
  * @param {*} str     string        string which is being searched
- * @returns [boolean, number]       a boolean which tells if pattern was
+ * @returns {[boolean, number]}       a boolean which tells if pattern was
  *                                  found or not and a search score
  */
 export function fuzzyMatch(pattern, str) {
@@ -231,7 +231,7 @@ export class ftsFuzzyMatchAsync {
   constructor(matchFn, pattern, dataSet, onComplete) {
     const ITEMS_PER_CHECK = 1000; // performance.now can be very slow depending on platform
     const results = [];
-    const max_ms_per_frame = 1000.0 / 30.0; // 30FPS
+    let max_ms_per_frame = 1000.0 / 30.0; // 30FPS
     let dataIndex = 0;
     let resumeTimeout = null;
 
